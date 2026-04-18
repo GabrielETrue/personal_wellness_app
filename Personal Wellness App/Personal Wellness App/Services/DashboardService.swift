@@ -26,8 +26,39 @@ struct DashboardService {
     }
 
     static func hasLoggedToday(for category: CategoryLevel, in context: ModelContext) -> Bool {
-        let today = Calendar.current.startOfDay(for: Date())
-        return loggedDates(for: category, in: context).contains(today)
+        let calendar = Calendar.current
+
+        for goal in category.goals {
+            for metric in goal.subMetrics {
+                if metric.logs.contains(where: { calendar.isDateInToday($0.date) }) {
+                    return true
+                }
+            }
+        }
+
+        switch category.name {
+        case "Diet":
+            if let logs = try? context.fetch(FetchDescriptor<FoodLog>()) {
+                return logs.contains { calendar.isDateInToday($0.date) }
+            }
+        case "Exercise":
+            if let logs = try? context.fetch(FetchDescriptor<LiftingEntry>()),
+               logs.contains(where: { calendar.isDateInToday($0.date) }) {
+                return true
+            }
+            if let logs = try? context.fetch(FetchDescriptor<CardioEntry>()),
+               logs.contains(where: { calendar.isDateInToday($0.date) }) {
+                return true
+            }
+        case "Sleep":
+            if let logs = try? context.fetch(FetchDescriptor<SleepLog>()) {
+                return logs.contains { calendar.isDateInToday($0.date) }
+            }
+        default:
+            break
+        }
+
+        return false
     }
 
     static func recentActivity(in context: ModelContext, limit: Int) -> [ActivityItem] {

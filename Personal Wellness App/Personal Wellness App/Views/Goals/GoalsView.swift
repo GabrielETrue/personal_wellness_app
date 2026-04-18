@@ -8,6 +8,9 @@ struct GoalsView: View {
     @State private var selectedCategoryName = "Diet"
     @State private var showingAddGoal = false
     @State private var addGoalCategory: CategoryLevel?
+    @State private var showingDietLog = false
+    @State private var showingExerciseLog = false
+    @State private var showingSleepLog = false
 
     private let categoryOrder = ["Diet", "Exercise", "Sleep", "Custom"]
 
@@ -63,6 +66,19 @@ struct GoalsView: View {
                 AddGoalView(categoryLevel: category)
             }
         }
+        .sheet(isPresented: $showingDietLog) { DietLogView() }
+        .sheet(isPresented: $showingExerciseLog) { ExerciseLogView() }
+        .sheet(isPresented: $showingSleepLog) { SleepLogView() }
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 12) {
+                QuickLogButton(label: "🍽 Food") { showingDietLog = true }
+                QuickLogButton(label: "💪 Exercise") { showingExerciseLog = true }
+                QuickLogButton(label: "😴 Sleep") { showingSleepLog = true }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .background(.regularMaterial)
+        }
     }
     private func deleteGoals(at offsets: IndexSet, from goals: [Goal]) {
         for index in offsets {
@@ -114,6 +130,24 @@ private struct FrequencyBadge: View {
             .background(frequency == "daily" ? Color.blue.opacity(0.15) : Color.purple.opacity(0.15))
             .foregroundStyle(frequency == "daily" ? .blue : .purple)
             .clipShape(Capsule())
+    }
+}
+
+private struct QuickLogButton: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(.tint, in: Capsule())
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
