@@ -16,53 +16,80 @@ struct GoalDetailView: View {
     }
 
     var body: some View {
-        List {
-            Section("Sub-Metrics") {
-                if goal.subMetrics.isEmpty {
-                    Text("No sub-metrics").foregroundStyle(.secondary)
-                } else {
-                    ForEach(goal.subMetrics) { metric in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(metric.name)
-                                Text("Target: \(metric.targetValue.formatted()) \(metric.unit)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-            }
+        ZStack {
+            AppTheme.backgroundPrimary.ignoresSafeArea()
 
-            Section("Recent Logs") {
-                if recentLogs.isEmpty {
-                    Text("No logs yet").foregroundStyle(.secondary)
-                } else {
-                    ForEach(recentLogs) { entry in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.value.formatted())
-                                if !entry.notes.isEmpty {
-                                    Text(entry.notes)
+            List {
+                Section {
+                    if goal.subMetrics.isEmpty {
+                        Text("No sub-metrics")
+                            .foregroundStyle(AppTheme.textSecondary)
+                    } else {
+                        ForEach(goal.subMetrics) { metric in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(metric.name)
+                                        .foregroundStyle(AppTheme.textPrimary)
+                                    Text("Target: \(metric.targetValue.formatted()) \(metric.unit)")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(AppTheme.textSecondary)
                                 }
+                                Spacer()
                             }
-                            Spacer()
-                            Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            .listRowBackground(AppTheme.backgroundCard)
                         }
                     }
+                } header: {
+                    Text("Sub-Metrics")
+                        .foregroundStyle(AppTheme.accentBlue)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .kerning(1.1)
+                }
+
+                Section {
+                    if recentLogs.isEmpty {
+                        Text("No logs yet")
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .listRowBackground(AppTheme.backgroundCard)
+                    } else {
+                        ForEach(recentLogs) { entry in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.value.formatted())
+                                        .foregroundStyle(AppTheme.textPrimary)
+                                    if !entry.notes.isEmpty {
+                                        Text(entry.notes)
+                                            .font(.caption)
+                                            .foregroundStyle(AppTheme.textSecondary)
+                                    }
+                                }
+                                Spacer()
+                                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
+                            .listRowBackground(AppTheme.backgroundCard)
+                        }
+                    }
+                } header: {
+                    Text("Recent Logs")
+                        .foregroundStyle(AppTheme.accentBlue)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .kerning(1.1)
                 }
             }
+            .scrollContentBackground(.hidden)
         }
         .navigationTitle(goal.name)
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Log Progress") { showingLogProgress = true }
+                    .foregroundStyle(AppTheme.accentBlue)
                     .disabled(goal.subMetrics.isEmpty)
             }
         }
@@ -93,4 +120,5 @@ struct GoalDetailView: View {
         GoalDetailView(goal: goal)
     }
     .modelContainer(container)
+    .preferredColorScheme(.dark)
 }

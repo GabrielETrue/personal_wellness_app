@@ -18,31 +18,46 @@ struct LogProgressView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Sub-Metric") {
-                    Picker("Log for", selection: $selectedSubMetric) {
-                        Text("Select…").tag(nil as SubMetric?)
-                        ForEach(goal.subMetrics) { metric in
-                            Text("\(metric.name) (\(metric.unit))").tag(metric as SubMetric?)
-                        }
-                    }
-                }
+            ZStack {
+                AppTheme.backgroundPrimary.ignoresSafeArea()
 
-                Section("Entry") {
-                    TextField("Value", text: $value)
-                        .keyboardType(.decimalPad)
-                    TextField("Notes (optional)", text: $notes)
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                ScrollView {
+                    VStack(spacing: 20) {
+                        FormCard(header: "Sub-Metric") {
+                            Picker("Log for", selection: $selectedSubMetric) {
+                                Text("Select…").tag(nil as SubMetric?)
+                                ForEach(goal.subMetrics) { metric in
+                                    Text("\(metric.name) (\(metric.unit))").tag(metric as SubMetric?)
+                                }
+                            }
+                            .foregroundStyle(AppTheme.textPrimary)
+                        }
+
+                        FormCard(header: "Entry") {
+                            ThemedTextField("Value", text: $value)
+                                .keyboardType(.decimalPad)
+                            Divider().background(AppTheme.backgroundSecondary)
+                            ThemedTextField("Notes (optional)", text: $notes)
+                            Divider().background(AppTheme.backgroundSecondary)
+                            DatePicker("Date", selection: $date, displayedComponents: .date)
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .tint(AppTheme.accentBlue)
+                        }
+
+                        GradientSaveButton(title: "Save Entry", isEnabled: canSave) { save() }
+                            .padding(.horizontal)
+                    }
+                    .padding()
                 }
             }
             .navigationTitle("Log Progress")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.disabled(!canSave)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
             .onAppear {
@@ -116,4 +131,5 @@ struct LogProgressView: View {
     container.mainContext.insert(metric)
     return LogProgressView(goal: goal)
         .modelContainer(container)
+        .preferredColorScheme(.dark)
 }

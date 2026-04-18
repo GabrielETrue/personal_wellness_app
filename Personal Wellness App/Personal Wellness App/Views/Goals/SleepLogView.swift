@@ -13,58 +13,70 @@ struct SleepLogView: View {
     private var progress: Double { min(hours / goalHours, 1.0) }
 
     private var progressColor: Color {
-        if hours >= 8 { return .green }
-        if hours >= 6 { return .yellow }
-        return .red
+        if hours >= 8 { return AppTheme.success }
+        if hours >= 6 { return AppTheme.warning }
+        return AppTheme.danger
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    VStack(spacing: 16) {
-                        Text("\(hours.formatted()) hrs")
-                            .font(.system(size: 52, weight: .bold, design: .rounded))
-                            .frame(maxWidth: .infinity)
+            ZStack {
+                AppTheme.backgroundPrimary.ignoresSafeArea()
 
-                        Stepper(
-                            "Hours slept",
-                            value: $hours,
-                            in: 0...14,
-                            step: 0.5
-                        )
-                        .labelsHidden()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        FormCard(header: "Hours Slept") {
+                            VStack(spacing: 16) {
+                                Text("\(hours.formatted()) hrs")
+                                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                                    .foregroundStyle(AppTheme.textPrimary)
+                                    .frame(maxWidth: .infinity)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Goal: \(goalHours.formatted()) hrs")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(hours >= goalHours ? "Goal met ✓" : "\((goalHours - hours).formatted()) hrs short")
-                                    .font(.caption)
-                                    .foregroundStyle(hours >= goalHours ? .green : .secondary)
+                                Stepper(
+                                    "Hours slept",
+                                    value: $hours,
+                                    in: 0...14,
+                                    step: 0.5
+                                )
+                                .labelsHidden()
+                                .foregroundStyle(AppTheme.textPrimary)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Goal: \(goalHours.formatted()) hrs")
+                                            .font(.caption)
+                                            .foregroundStyle(AppTheme.textSecondary)
+                                        Spacer()
+                                        Text(hours >= goalHours ? "Goal met ✓" : "\((goalHours - hours).formatted()) hrs short")
+                                            .font(.caption)
+                                            .foregroundStyle(hours >= goalHours ? AppTheme.success : AppTheme.textSecondary)
+                                    }
+                                    GradientProgressBar(value: progress, height: 8, tintColor: progressColor)
+                                }
                             }
-                            ProgressView(value: progress)
-                                .tint(progressColor)
+                            .padding(.vertical, 8)
                         }
-                    }
-                    .padding(.vertical, 8)
-                }
 
-                Section("Details") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                        FormCard(header: "Details") {
+                            DatePicker("Date", selection: $date, displayedComponents: .date)
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .tint(AppTheme.accentBlue)
+                        }
+
+                        GradientSaveButton(title: "Save Sleep Log", isEnabled: hours > 0) { save() }
+                            .padding(.horizontal)
+                    }
+                    .padding()
                 }
             }
             .navigationTitle("Log Sleep")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .disabled(hours == 0)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
         }
@@ -88,4 +100,5 @@ struct SleepLogView: View {
     let container = try! ModelContainer(for: SleepLog.self, configurations: config)
     return SleepLogView()
         .modelContainer(container)
+        .preferredColorScheme(.dark)
 }

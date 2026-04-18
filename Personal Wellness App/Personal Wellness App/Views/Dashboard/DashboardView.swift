@@ -5,7 +5,6 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var players: [PlayerProfile]
     @Query private var categories: [CategoryLevel]
-    // Observed so the view refreshes when any log type changes
     @Query private var logEntries: [LogEntry]
     @Query private var foodLogs: [FoodLog]
     @Query private var liftingEntries: [LiftingEntry]
@@ -13,6 +12,7 @@ struct DashboardView: View {
     @Query private var sleepLogs: [SleepLog]
 
     @State private var selectedCategory: CategoryLevel?
+    @State private var recentActivities: [ActivityItem] = []
 
     private let categoryOrder = ["Diet", "Exercise", "Sleep", "Custom"]
 
@@ -21,6 +21,22 @@ struct DashboardView: View {
             (categoryOrder.firstIndex(of: $0.name) ?? 99) <
             (categoryOrder.firstIndex(of: $1.name) ?? 99)
         }
+    }
+
+    private var activityTitle: String {
+        selectedCategory.map { "Recent \($0.name) Activity" } ?? "Recent Activity"
+    }
+
+    private var logCount: Int {
+        foodLogs.count + logEntries.count + liftingEntries.count + cardioEntries.count + sleepLogs.count
+    }
+
+    private func refreshActivities() {
+        recentActivities = DashboardService.recentActivity(
+            in: modelContext,
+            category: selectedCategory,
+            limit: 10
+        )
     }
 
     private var greeting: String {
@@ -33,52 +49,61 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            ScrollViewReader { proxy in
-                VStack(alignment: .leading, spacing: 24) {
+        ZStack {
+            AppTheme.backgroundPrimary.ignoresSafeArea()
 
-                    // Section A — Player Header
-                    if let player = players.first {
-                        PlayerHeaderSection(greeting: greeting, player: player)
-                    }
+            ScrollView {
+                ScrollViewReader { proxy in
+                    VStack(alignment: .leading, spacing: 24) {
 
-                    // Section B — Category Cards
-                    let columns = [GridItem(.flexible()), GridItem(.flexible())]
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(sortedCategories) { category in
-                            CategoryCard(
+                        // Section A — Player Header
+                        if let player = players.first {
+                            PlayerHeaderSection(greeting: greeting, player: player)
+                        }
+
+                        // Section B — Category Cards
+                        let columns = [GridItem(.flexible()), GridItem(.flexible())]
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(sortedCategories) { category in
+                                CategoryCard(
+                                    category: category,
+                                    context: modelContext,
+                                    isSelected: selectedCategory?.id == category.id,
+                                    onTap: { selectedCategory = category }
+                                )
+                            }
+                        }
+
+                        // Section C — Category Detail
+                        if let category = selectedCategory {
+                            CategoryDetailSection(
                                 category: category,
-                                context: modelContext,
-                                isSelected: selectedCategory?.id == category.id,
-                                onTap: { selectedCategory = category }
+                                onDismiss: { selectedCategory = nil }
                             )
+                            .id("sectionC")
+                        }
+
+                        // Section D — Recent Activity
+                        RecentActivitySection(title: activityTitle, activities: recentActivities)
+                    }
+                    .padding()
+                    .onChange(of: selectedCategory?.id) { _, newID in
+                        refreshActivities()
+                        guard newID != nil else { return }
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                proxy.scrollTo("sectionC", anchor: .top)
+                            }
                         }
                     }
-
-                    // Section C — Category Detail
-                    if let category = selectedCategory {
-                        CategoryDetailSection(
-                            category: category,
-                            onDismiss: { selectedCategory = nil }
-                        )
-                        .id("sectionC")
-                    }
-
-                    // Section D — Recent Activity
-                    RecentActivitySection(context: modelContext)
-                }
-                .padding()
-                .onChange(of: selectedCategory?.id) { _, newID in
-                    guard newID != nil else { return }
-                    DispatchQueue.main.async {
-                        withAnimation {
-                            proxy.scrollTo("sectionC", anchor: .top)
-                        }
-                    }
+                    .onChange(of: logCount) { _, _ in refreshActivities() }
                 }
             }
         }
         .navigationTitle("Dashboard")
+        .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .task { refreshActivities() }
     }
 }
 
@@ -93,22 +118,31 @@ private struct PlayerHeaderSection: View {
     private var remaining: Int { xpForNextLevel - player.globalXP }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(greeting)
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.textSecondary)
             Text("Level \(player.globalLevel)")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-            ProgressView(value: max(0, min(progress, 1.0)))
-                .tint(Color.accentColor)
+                .foregroundStyle(AppTheme.textPrimary)
+            GradientProgressBar(value: progress, height: 10)
             HStack {
                 Spacer()
                 Text("\(remaining) XP to next level")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppTheme.cardGradient)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(AppTheme.accentBlue.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 }
 
@@ -129,29 +163,31 @@ private struct CategoryCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: category.icon)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(AppTheme.accentBlue)
+                    .shadow(color: AppTheme.accentBlue.opacity(0.6), radius: 4)
                 Spacer()
                 Text("Lv \(category.level)")
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.15))
-                    .foregroundStyle(Color.accentColor)
+                    .background(AppTheme.accentPurple.opacity(0.2))
+                    .foregroundStyle(AppTheme.accentPurple)
                     .clipShape(Capsule())
             }
 
             Text(category.name)
                 .font(.subheadline)
                 .fontWeight(.semibold)
+                .foregroundStyle(AppTheme.textPrimary)
 
-            ProgressView(value: max(0, min(xpProgress, 1.0)))
-                .tint(.accentColor)
+            GradientProgressBar(value: max(0, min(xpProgress, 1.0)))
 
             HStack {
                 if streak > 0 {
                     Text("🔥 \(streak) day streak")
                         .font(.caption2)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 Spacer()
                 if loggedToday {
@@ -160,18 +196,21 @@ private struct CategoryCard: View {
                 } else {
                     Text("Nothing logged today")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
         }
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.accentColor.opacity(0.1) : Color(.systemGray6))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                .fill(isSelected ? AppTheme.accentBlue.opacity(0.12) : AppTheme.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isSelected ? AppTheme.accentBlue : AppTheme.accentBlue.opacity(0.15),
+                            lineWidth: isSelected ? 1.5 : 1
+                        )
+                )
         )
         .onTapGesture(perform: onTap)
     }
@@ -194,10 +233,11 @@ private struct CategoryDetailSection: View {
             HStack {
                 Text(category.name)
                     .font(.headline)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -205,21 +245,25 @@ private struct CategoryDetailSection: View {
             if activeGoals.isEmpty {
                 Text("No active goals. Add one in the Goals tab.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .padding(.vertical, 4)
             } else {
                 ForEach(Array(activeGoals.enumerated()), id: \.element.id) { index, goal in
                     GoalProgressRow(goal: goal)
                     if index < activeGoals.count - 1 {
-                        Divider()
+                        Divider().overlay(AppTheme.backgroundSecondary)
                     }
                 }
             }
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppTheme.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(AppTheme.accentPurple.opacity(0.3), lineWidth: 1)
+                )
         )
     }
 }
@@ -233,10 +277,11 @@ private struct GoalProgressRow: View {
                 Text(goal.name)
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Spacer()
                 Text("\(goal.xpValue) XP")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.accentBlue)
             }
             ForEach(goal.subMetrics) { metric in
                 SubMetricProgressRow(metric: metric)
@@ -264,14 +309,13 @@ private struct SubMetricProgressRow: View {
             HStack {
                 Text(metric.name)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                 Spacer()
                 Text("\(todayTotal.formatted())/\(metric.targetValue.formatted()) \(metric.unit)")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
-            ProgressView(value: progress)
-                .tint(.accentColor)
+            GradientProgressBar(value: progress, height: 6)
         }
     }
 }
@@ -279,33 +323,44 @@ private struct SubMetricProgressRow: View {
 // MARK: - Section D: Recent Activity
 
 private struct RecentActivitySection: View {
-    let context: ModelContext
+    let title: String
+    let activities: [ActivityItem]
 
     var body: some View {
-        let activities = DashboardService.recentActivity(in: context, limit: 10)
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Activity")
-                .font(.headline)
+            Text(title.uppercased())
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(AppTheme.accentBlue)
+                .kerning(1.2)
 
             if activities.isEmpty {
                 Text("No recent activity.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .padding(.vertical, 4)
             } else {
-                ForEach(Array(activities.enumerated()), id: \.element.id) { index, item in
-                    ActivityRow(item: item)
-                    if index < activities.count - 1 {
-                        Divider()
+                VStack(spacing: 0) {
+                    ForEach(Array(activities.enumerated()), id: \.element.id) { index, item in
+                        ActivityRow(item: item)
+                            .padding(.vertical, 10)
+                        if index < activities.count - 1 {
+                            Divider()
+                                .background(AppTheme.backgroundSecondary)
+                        }
                     }
                 }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(AppTheme.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(AppTheme.accentBlue.opacity(0.15), lineWidth: 1)
+                        )
+                )
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
     }
 }
 
@@ -319,16 +374,18 @@ private struct ActivityRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: item.icon)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(AppTheme.accentBlue)
+                .shadow(color: AppTheme.accentBlue.opacity(0.5), radius: 4)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.description)
                     .font(.subheadline)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Text(relativeTime)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -373,4 +430,5 @@ private struct ActivityRow: View {
         DashboardView()
     }
     .modelContainer(container)
+    .preferredColorScheme(.dark)
 }

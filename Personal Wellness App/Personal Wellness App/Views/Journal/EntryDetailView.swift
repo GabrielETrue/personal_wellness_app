@@ -11,44 +11,68 @@ struct EntryDetailView: View {
     @State private var editMood = 0
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if isEditing {
+        ZStack {
+            AppTheme.backgroundPrimary.ignoresSafeArea()
+
+            if isEditing {
+                VStack(spacing: 0) {
                     MoodSelectorRow(selectedMood: $editMood)
+                        .padding()
+                        .background(AppTheme.backgroundCard)
+
+                    Divider().background(AppTheme.backgroundSecondary)
 
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $editBody)
+                            .scrollContentBackground(.hidden)
+                            .background(Color.clear)
+                            .foregroundStyle(AppTheme.textPrimary)
+                            .tint(AppTheme.accentBlue)
                             .frame(minHeight: 300)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
                         if editBody.isEmpty {
                             Text("What's on your mind?")
-                                .foregroundStyle(.tertiary)
-                                .padding(.top, 8)
-                                .padding(.leading, 9)
+                                .foregroundStyle(AppTheme.textSecondary.opacity(0.6))
+                                .padding(.top, 16)
+                                .padding(.leading, 17)
                                 .allowsHitTesting(false)
                         }
                     }
-                } else {
-                    if let emoji = moodEmoji(entry.mood) {
-                        Text(emoji)
-                            .font(.largeTitle)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.backgroundPrimary)
+
+                    GradientSaveButton(
+                        title: "Save Changes",
+                        isEnabled: !editBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ) { saveEdits() }
+                        .padding()
+                        .background(AppTheme.backgroundSecondary)
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        if let emoji = moodEmoji(entry.mood) {
+                            Text(emoji)
+                                .font(.largeTitle)
+                        }
+                        Text(entry.body)
+                            .foregroundStyle(AppTheme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Text(entry.body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
                 }
             }
-            .padding()
         }
         .navigationTitle(entry.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             if isEditing {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isEditing = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveEdits() }
-                        .disabled(editBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             } else {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -57,6 +81,7 @@ struct EntryDetailView: View {
                         editMood = entry.mood
                         isEditing = true
                     }
+                    .foregroundStyle(AppTheme.accentBlue)
                 }
             }
         }
@@ -79,4 +104,5 @@ struct EntryDetailView: View {
         EntryDetailView(entry: entry)
     }
     .modelContainer(container)
+    .preferredColorScheme(.dark)
 }

@@ -32,35 +32,45 @@ struct ExerciseLogView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Picker("Type", selection: $exerciseType) {
-                        Text("Lifting").tag("Lifting")
-                        Text("Cardio").tag("Cardio")
+            ZStack {
+                AppTheme.backgroundPrimary.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        FormCard(header: "Type") {
+                            Picker("Type", selection: $exerciseType) {
+                                Text("Lifting").tag("Lifting")
+                                Text("Cardio").tag("Cardio")
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        if exerciseType == "Lifting" {
+                            liftingCards
+                        } else {
+                            cardioCard
+                        }
+
+                        FormCard(header: "Details") {
+                            DatePicker("Date", selection: $date, displayedComponents: .date)
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .tint(AppTheme.accentBlue)
+                        }
+
+                        GradientSaveButton(title: "Save Exercise", isEnabled: canSave) { save() }
+                            .padding(.horizontal)
                     }
-                    .pickerStyle(.segmented)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                    .listRowBackground(Color.clear)
-                }
-
-                if exerciseType == "Lifting" {
-                    liftingSection
-                } else {
-                    cardioSection
-                }
-
-                Section("Details") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                    .padding()
                 }
             }
             .navigationTitle("Log Exercise")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.disabled(!canSave)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
         }
@@ -69,26 +79,41 @@ struct ExerciseLogView: View {
     // MARK: Lifting
 
     @ViewBuilder
-    private var liftingSection: some View {
-        Section("Exercise") {
-            TextField("Exercise name (e.g. Bench Press)", text: $exerciseName)
+    private var liftingCards: some View {
+        FormCard(header: "Exercise") {
+            ThemedTextField("Exercise name (e.g. Bench Press)", text: $exerciseName)
         }
 
-        Section {
+        FormCard(header: "Sets") {
             ForEach(Array(sets.enumerated()), id: \.element.id) { index, draft in
-                Text("Set \(index + 1): \(draft.reps) reps @ \(draft.weightKg.formatted()) kg")
-                    .font(.subheadline)
+                HStack {
+                    Text("Set \(index + 1): \(draft.reps) reps @ \(draft.weightKg.formatted()) kg")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textPrimary)
+                    Spacer()
+                    Button {
+                        sets.remove(at: index)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(AppTheme.danger)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Divider().background(AppTheme.backgroundSecondary)
             }
-            .onDelete { sets.remove(atOffsets: $0) }
 
             if showingAddSet {
                 Stepper("Reps: \(pendingReps)", value: $pendingReps, in: 1...50)
+                    .foregroundStyle(AppTheme.textPrimary)
                 HStack {
                     Text("Weight (kg)")
+                        .foregroundStyle(AppTheme.textPrimary)
                     Spacer()
                     TextField("0", text: $pendingWeight)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .tint(AppTheme.accentBlue)
                         .frame(maxWidth: 80)
                 }
                 Button("Confirm Set") {
@@ -97,37 +122,44 @@ struct ExerciseLogView: View {
                     pendingWeight = ""
                     showingAddSet = false
                 }
-                .foregroundStyle(.tint)
+                .foregroundStyle(AppTheme.accentCyan)
             } else {
-                Button("Add Set") { showingAddSet = true }
-                    .foregroundStyle(.tint)
+                Button("+ Add Set") { showingAddSet = true }
+                    .foregroundStyle(AppTheme.accentBlue)
             }
-        } header: {
-            Text("Sets")
         }
     }
 
     // MARK: Cardio
 
     @ViewBuilder
-    private var cardioSection: some View {
-        Section("Cardio") {
+    private var cardioCard: some View {
+        FormCard(header: "Cardio") {
             Picker("Type", selection: $cardioType) {
                 ForEach(cardioTypes, id: \.self) { Text($0).tag($0) }
             }
+            .foregroundStyle(AppTheme.textPrimary)
+            Divider().background(AppTheme.backgroundSecondary)
             HStack {
                 Text("Duration (min)")
+                    .foregroundStyle(AppTheme.textPrimary)
                 Spacer()
                 TextField("0", text: $cardioDuration)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .tint(AppTheme.accentBlue)
                     .frame(maxWidth: 80)
             }
+            Divider().background(AppTheme.backgroundSecondary)
             HStack {
                 Text("Avg Pace")
+                    .foregroundStyle(AppTheme.textPrimary)
                 Spacer()
                 TextField("e.g. 8:30/mi", text: $avgPace)
                     .multilineTextAlignment(.trailing)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .tint(AppTheme.accentBlue)
             }
         }
     }
@@ -200,4 +232,5 @@ struct SetDraft: Identifiable {
     )
     return ExerciseLogView()
         .modelContainer(container)
+        .preferredColorScheme(.dark)
 }

@@ -19,37 +19,45 @@ struct GoalsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Category", selection: $selectedCategoryName) {
-                ForEach(categoryOrder, id: \.self) { Text($0).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding()
+        ZStack {
+            AppTheme.backgroundPrimary.ignoresSafeArea()
 
-            if let category = selectedCategory {
-                let sorted = category.goals.sorted { $0.createdDate < $1.createdDate }
-                if sorted.isEmpty {
-                    ContentUnavailableView(
-                        "No Goals",
-                        systemImage: category.icon,
-                        description: Text("Tap + to add your first \(category.name) goal.")
-                    )
-                } else {
-                    List {
-                        ForEach(sorted) { goal in
-                            NavigationLink(destination: GoalDetailView(goal: goal)) {
-                                GoalRow(goal: goal)
-                            }
-                        }
-                        .onDelete { offsets in deleteGoals(at: offsets, from: sorted) }
-                    }
+            VStack(spacing: 0) {
+                Picker("Category", selection: $selectedCategoryName) {
+                    ForEach(categoryOrder, id: \.self) { Text($0).tag($0) }
                 }
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .pickerStyle(.segmented)
+                .padding()
+
+                if let category = selectedCategory {
+                    let sorted = category.goals.sorted { $0.createdDate < $1.createdDate }
+                    if sorted.isEmpty {
+                        ContentUnavailableView(
+                            "No Goals",
+                            systemImage: category.icon,
+                            description: Text("Tap + to add your first \(category.name) goal.")
+                        )
+                    } else {
+                        List {
+                            ForEach(sorted) { goal in
+                                NavigationLink(destination: GoalDetailView(goal: goal)) {
+                                    GoalRow(goal: goal)
+                                }
+                                .listRowBackground(AppTheme.backgroundCard)
+                            }
+                            .onDelete { offsets in deleteGoals(at: offsets, from: sorted) }
+                        }
+                        .scrollContentBackground(.hidden)
+                    }
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
         }
         .navigationTitle("Goals")
+        .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -57,6 +65,7 @@ struct GoalsView: View {
                     showingAddGoal = true
                 } label: {
                     Image(systemName: "plus")
+                        .foregroundStyle(AppTheme.accentBlue)
                 }
                 .disabled(selectedCategory == nil)
             }
@@ -77,9 +86,10 @@ struct GoalsView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(.regularMaterial)
+            .background(AppTheme.backgroundSecondary)
         }
     }
+
     private func deleteGoals(at offsets: IndexSet, from goals: [Goal]) {
         for index in offsets {
             let goal = goals[index]
@@ -102,20 +112,22 @@ private struct GoalRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(goal.name)
+                    .foregroundStyle(AppTheme.textPrimary)
                 HStack(spacing: 6) {
                     FrequencyBadge(frequency: goal.frequency)
                     if !goal.isActive {
                         Text("Inactive")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
             }
             Spacer()
             Text("\(goal.xpValue) XP")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.accentBlue)
         }
+        .padding(.vertical, 2)
     }
 }
 
@@ -127,8 +139,8 @@ private struct FrequencyBadge: View {
             .font(.caption2)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(frequency == "daily" ? Color.blue.opacity(0.15) : Color.purple.opacity(0.15))
-            .foregroundStyle(frequency == "daily" ? .blue : .purple)
+            .background(frequency == "daily" ? AppTheme.accentBlue.opacity(0.15) : AppTheme.accentPurple.opacity(0.15))
+            .foregroundStyle(frequency == "daily" ? AppTheme.accentBlue : AppTheme.accentPurple)
             .clipShape(Capsule())
     }
 }
@@ -142,10 +154,12 @@ private struct QuickLogButton: View {
             Text(label)
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(.tint, in: Capsule())
+                .background(AppTheme.xpGradient)
+                .clipShape(Capsule())
+                .shadow(color: AppTheme.accentBlue.opacity(0.3), radius: 6)
         }
         .frame(maxWidth: .infinity)
     }
@@ -157,4 +171,5 @@ private struct QuickLogButton: View {
     }
     .modelContainer(for: [PlayerProfile.self, CategoryLevel.self, LevelEvent.self,
                            Goal.self, SubMetric.self, LogEntry.self], inMemory: true)
+    .preferredColorScheme(.dark)
 }

@@ -11,40 +11,58 @@ struct DietLogView: View {
     @State private var date = Date()
     @State private var nutrientDrafts: [NutrientDraft] = []
 
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Food Item") {
-                    TextField("Food name", text: $name)
-                    Stepper("Calories: \(Int(calories))", value: $calories, in: 0...5000, step: 50)
-                    Stepper("Protein: \(Int(protein))g", value: $protein, in: 0...500, step: 5)
-                }
+            ZStack {
+                AppTheme.backgroundPrimary.ignoresSafeArea()
 
-                Section {
-                    ForEach($nutrientDrafts) { $draft in
-                        NutrientDraftRow(draft: $draft)
-                    }
-                    .onDelete { nutrientDrafts.remove(atOffsets: $0) }
-                    Button("Add Custom Nutrient") {
-                        nutrientDrafts.append(NutrientDraft())
-                    }
-                } header: {
-                    Text("Custom Nutrients")
-                }
+                ScrollView {
+                    VStack(spacing: 20) {
+                        FormCard(header: "Food Item") {
+                            ThemedTextField("Food name", text: $name)
+                            Divider().background(AppTheme.backgroundSecondary)
+                            Stepper("Calories: \(Int(calories))", value: $calories, in: 0...5000, step: 50)
+                                .foregroundStyle(AppTheme.textPrimary)
+                            Divider().background(AppTheme.backgroundSecondary)
+                            Stepper("Protein: \(Int(protein))g", value: $protein, in: 0...500, step: 5)
+                                .foregroundStyle(AppTheme.textPrimary)
+                        }
 
-                Section("Details") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                        FormCard(header: "Custom Nutrients") {
+                            ForEach($nutrientDrafts) { $draft in
+                                NutrientDraftRow(draft: $draft)
+                                Divider().background(AppTheme.backgroundSecondary)
+                            }
+                            Button("+ Add Custom Nutrient") {
+                                nutrientDrafts.append(NutrientDraft())
+                            }
+                            .foregroundStyle(AppTheme.accentBlue)
+                        }
+
+                        FormCard(header: "Details") {
+                            DatePicker("Date", selection: $date, displayedComponents: .date)
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .tint(AppTheme.accentBlue)
+                        }
+
+                        GradientSaveButton(title: "Save Food Log", isEnabled: canSave) { save() }
+                            .padding(.horizontal)
+                    }
+                    .padding()
                 }
             }
             .navigationTitle("Log Food")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
         }
@@ -86,12 +104,12 @@ private struct NutrientDraftRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            TextField("Nutrient name", text: $draft.name)
+            ThemedTextField("Nutrient name", text: $draft.name)
             HStack {
-                TextField("Amount", text: $draft.value)
+                ThemedTextField("Amount", text: $draft.value)
                     .keyboardType(.decimalPad)
                     .frame(maxWidth: 80)
-                TextField("Unit (e.g. mg, g)", text: $draft.unit)
+                ThemedTextField("Unit (e.g. mg, g)", text: $draft.unit)
             }
             .font(.subheadline)
         }
@@ -107,4 +125,5 @@ private struct NutrientDraftRow: View {
     )
     return DietLogView()
         .modelContainer(container)
+        .preferredColorScheme(.dark)
 }

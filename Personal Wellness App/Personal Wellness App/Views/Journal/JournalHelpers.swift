@@ -27,10 +27,14 @@ struct MoodSelectorRow: View {
                         .padding(8)
                         .background(
                             selectedMood == value
-                                ? Color.accentColor.opacity(0.2)
-                                : Color.clear
+                                ? AppTheme.accentBlue.opacity(0.25)
+                                : AppTheme.backgroundCard
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(
+                            color: selectedMood == value ? AppTheme.accentBlue.opacity(0.4) : .clear,
+                            radius: 6
+                        )
                 }
                 .buttonStyle(.plain)
             }

@@ -40,6 +40,7 @@ struct Personal_Wellness_AppApp: App {
         WindowGroup {
             ContentView()
                 .task { await seedDefaultDataIfNeeded() }
+                .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
     }

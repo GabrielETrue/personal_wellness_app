@@ -61,59 +61,72 @@ struct DashboardService {
         return false
     }
 
-    static func recentActivity(in context: ModelContext, limit: Int) -> [ActivityItem] {
+    static func recentActivity(
+        in context: ModelContext,
+        category: CategoryLevel? = nil,
+        limit: Int
+    ) -> [ActivityItem] {
         var items: [ActivityItem] = []
+        let categoryName = category?.name
 
-        if let logs = try? context.fetch(FetchDescriptor<FoodLog>()) {
-            for log in logs {
-                items.append(ActivityItem(
-                    id: log.id,
-                    date: log.date,
-                    icon: "fork.knife",
-                    description: "🍽 \(log.name): \(Int(log.calories)) kcal, \(log.protein.formatted())g protein",
-                    categoryName: "Diet"
-                ))
+        if categoryName == nil || categoryName == "Diet" {
+            if let logs = try? context.fetch(FetchDescriptor<FoodLog>()) {
+                for log in logs {
+                    items.append(ActivityItem(
+                        id: log.id,
+                        date: log.date,
+                        icon: "fork.knife",
+                        description: "🍽 \(log.name): \(Int(log.calories)) kcal, \(log.protein.formatted())g protein",
+                        categoryName: "Diet"
+                    ))
+                }
             }
         }
 
-        if let logs = try? context.fetch(FetchDescriptor<LiftingEntry>()) {
-            for log in logs {
-                items.append(ActivityItem(
-                    id: log.id,
-                    date: log.date,
-                    icon: "figure.run",
-                    description: "💪 \(log.exerciseName): \(log.sets.count) sets",
-                    categoryName: "Exercise"
-                ))
+        if categoryName == nil || categoryName == "Exercise" {
+            if let logs = try? context.fetch(FetchDescriptor<LiftingEntry>()) {
+                for log in logs {
+                    items.append(ActivityItem(
+                        id: log.id,
+                        date: log.date,
+                        icon: "figure.run",
+                        description: "💪 \(log.exerciseName): \(log.sets.count) sets",
+                        categoryName: "Exercise"
+                    ))
+                }
+            }
+            if let logs = try? context.fetch(FetchDescriptor<CardioEntry>()) {
+                for log in logs {
+                    items.append(ActivityItem(
+                        id: log.id,
+                        date: log.date,
+                        icon: "figure.run",
+                        description: "🏃 \(log.type): \(log.durationMinutes.formatted()) min",
+                        categoryName: "Exercise"
+                    ))
+                }
             }
         }
 
-        if let logs = try? context.fetch(FetchDescriptor<CardioEntry>()) {
-            for log in logs {
-                items.append(ActivityItem(
-                    id: log.id,
-                    date: log.date,
-                    icon: "figure.run",
-                    description: "🏃 \(log.type): \(log.durationMinutes.formatted()) min",
-                    categoryName: "Exercise"
-                ))
+        if categoryName == nil || categoryName == "Sleep" {
+            if let logs = try? context.fetch(FetchDescriptor<SleepLog>()) {
+                for log in logs {
+                    items.append(ActivityItem(
+                        id: log.id,
+                        date: log.date,
+                        icon: "bed.double",
+                        description: "😴 \(log.hoursSlept.formatted()) hours sleep",
+                        categoryName: "Sleep"
+                    ))
+                }
             }
         }
 
-        if let logs = try? context.fetch(FetchDescriptor<SleepLog>()) {
-            for log in logs {
-                items.append(ActivityItem(
-                    id: log.id,
-                    date: log.date,
-                    icon: "bed.double",
-                    description: "😴 \(log.hoursSlept.formatted()) hours sleep",
-                    categoryName: "Sleep"
-                ))
-            }
-        }
-
+        // LogEntry: fetch all, then filter by category if one is specified
         if let logs = try? context.fetch(FetchDescriptor<LogEntry>()) {
             for log in logs {
+                let logCategoryID = log.subMetric?.goal?.category?.id
+                if let category, logCategoryID != category.id { continue }
                 let icon = log.subMetric?.goal?.category?.icon ?? "star"
                 let catName = log.subMetric?.goal?.category?.name ?? "Custom"
                 let metricName = log.subMetric?.name ?? "Entry"

@@ -8,29 +8,38 @@ struct JournalView: View {
     @State private var showingNewEntry = false
 
     var body: some View {
-        Group {
-            if entries.isEmpty {
-                ContentUnavailableView(
-                    "No journal entries yet.",
-                    systemImage: "book",
-                    description: Text("Tap + to write your first entry.")
-                )
-            } else {
-                List {
-                    ForEach(entries) { entry in
-                        NavigationLink(destination: EntryDetailView(entry: entry)) {
-                            EntryRow(entry: entry)
+        ZStack {
+            AppTheme.backgroundPrimary.ignoresSafeArea()
+
+            Group {
+                if entries.isEmpty {
+                    ContentUnavailableView(
+                        "No journal entries yet.",
+                        systemImage: "book",
+                        description: Text("Tap + to write your first entry.")
+                    )
+                } else {
+                    List {
+                        ForEach(entries) { entry in
+                            NavigationLink(destination: EntryDetailView(entry: entry)) {
+                                EntryRow(entry: entry)
+                            }
+                            .listRowBackground(AppTheme.backgroundCard)
                         }
+                        .onDelete(perform: deleteEntries)
                     }
-                    .onDelete(perform: deleteEntries)
+                    .scrollContentBackground(.hidden)
                 }
             }
         }
         .navigationTitle("Journal")
+        .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showingNewEntry = true } label: {
                     Image(systemName: "plus")
+                        .foregroundStyle(AppTheme.accentBlue)
                 }
             }
         }
@@ -56,9 +65,10 @@ private struct EntryRow: View {
                 Text(entry.date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .foregroundStyle(AppTheme.accentBlue)
                 Text(entry.body.components(separatedBy: .newlines).first ?? entry.body)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .lineLimit(1)
             }
             Spacer()
@@ -76,4 +86,5 @@ private struct EntryRow: View {
         JournalView()
     }
     .modelContainer(for: JournalEntry.self, inMemory: true)
+    .preferredColorScheme(.dark)
 }
