@@ -14,14 +14,18 @@ struct ContentView: View {
                 .tabItem {
                     Label("Dashboard", systemImage: "house")
                 }
-            GoalsView()
-                .tabItem {
-                    Label("Goals", systemImage: "target")
-                }
-            JournalView()
-                .tabItem {
-                    Label("Journal", systemImage: "book")
-                }
+            NavigationStack {
+                GoalsView()
+            }
+            .tabItem {
+                Label("Goals", systemImage: "target")
+            }
+            NavigationStack {
+                JournalView()
+            }
+            .tabItem {
+                Label("Journal", systemImage: "book")
+            }
             ClaudeView()
                 .tabItem {
                     Label("Claude", systemImage: "sparkles")
