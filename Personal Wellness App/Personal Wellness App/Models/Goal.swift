@@ -5,32 +5,27 @@ import SwiftData
 final class Goal {
     var id: UUID
     var name: String
-    var category: String
-    var targetValue: Double
-    var unit: String
     var frequency: String
-    var startDate: Date
     var isActive: Bool
-    @Relationship(deleteRule: .cascade, inverse: \MetricLog.goal)
-    var logs: [MetricLog] = []
+    var xpValue: Int
+    var createdDate: Date
+    var category: CategoryLevel?
+    @Relationship(deleteRule: .cascade, inverse: \SubMetric.goal)
+    var subMetrics: [SubMetric] = []
 
     init(
         id: UUID = UUID(),
         name: String,
-        category: String,
-        targetValue: Double,
-        unit: String,
         frequency: String,
-        startDate: Date = Date(),
-        isActive: Bool = true
+        isActive: Bool = true,
+        xpValue: Int = 10,
+        createdDate: Date = Date()
     ) {
         self.id = id
         self.name = name
-        self.category = category
-        self.targetValue = targetValue
-        self.unit = unit
         self.frequency = frequency
-        self.startDate = startDate
         self.isActive = isActive
+        self.xpValue = xpValue
+        self.createdDate = createdDate
     }
 }

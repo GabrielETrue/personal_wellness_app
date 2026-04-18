@@ -32,5 +32,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Goal.self, MetricLog.self, JournalEntry.self, AIInsight.self], inMemory: true)
 }
