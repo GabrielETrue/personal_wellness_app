@@ -87,7 +87,11 @@ struct DietLogView: View {
             nutrient.foodLog = log
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("DietLogView save failed: \(error)")
+        }
         dismiss()
     }
 }

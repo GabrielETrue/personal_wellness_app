@@ -26,13 +26,33 @@ struct Personal_Wellness_AppApp: App {
             SleepLog.self,
             JournalEntry.self,
             AIInsight.self,
+            WeightLog.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        func makeContainer() throws -> ModelContainer {
+            let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, allowsSave: true)
+            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+        }
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try makeContainer()
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            print("ModelContainer init failed, attempting store reset: \(error)")
+            if let storeURL = URL.applicationSupportDirectory
+                .appending(path: "default.store", directoryHint: .notDirectory) as URL? {
+                let fm = FileManager.default
+                for suffix in ["", "-shm", "-wal"] {
+                    let path = storeURL.path + suffix
+                    if fm.fileExists(atPath: path) {
+                        try? fm.removeItem(atPath: path)
+                    }
+                }
+            }
+            do {
+                return try makeContainer()
+            } catch {
+                fatalError("Could not create ModelContainer after store reset: \(error)")
+            }
         }
     }()
 
@@ -48,23 +68,27 @@ struct Personal_Wellness_AppApp: App {
     @MainActor
     private func seedDefaultDataIfNeeded() async {
         let context = sharedModelContainer.mainContext
-        let count = (try? context.fetchCount(FetchDescriptor<PlayerProfile>())) ?? 0
-        guard count == 0 else { return }
+        do {
+            let count = try context.fetchCount(FetchDescriptor<PlayerProfile>())
+            guard count == 0 else { return }
 
-        let player = PlayerProfile()
-        let categories: [(name: String, icon: String)] = [
-            ("Diet", "fork.knife"),
-            ("Exercise", "figure.run"),
-            ("Sleep", "bed.double"),
-            ("Custom", "star"),
-        ]
-        for cat in categories {
-            let categoryLevel = CategoryLevel(name: cat.name, icon: cat.icon)
-            categoryLevel.player = player
-            player.categoryLevels.append(categoryLevel)
-            context.insert(categoryLevel)
+            let player = PlayerProfile()
+            let categories: [(name: String, icon: String)] = [
+                ("Diet", "fork.knife"),
+                ("Exercise", "figure.run"),
+                ("Sleep", "bed.double"),
+                ("Custom", "star"),
+            ]
+            for cat in categories {
+                let categoryLevel = CategoryLevel(name: cat.name, icon: cat.icon)
+                categoryLevel.player = player
+                player.categoryLevels.append(categoryLevel)
+                context.insert(categoryLevel)
+            }
+            context.insert(player)
+            try context.save()
+        } catch {
+            print("seedDefaultDataIfNeeded failed: \(error)")
         }
-        context.insert(player)
-        try? context.save()
     }
 }

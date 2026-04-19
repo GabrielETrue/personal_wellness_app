@@ -82,14 +82,19 @@ struct AddGoalView: View {
         for draft in drafts where !draft.name.trimmingCharacters(in: .whitespaces).isEmpty {
             let metric = SubMetric(
                 name: draft.name.trimmingCharacters(in: .whitespaces),
-                unit: draft.unit,
-                targetValue: Double(draft.targetValue) ?? 0
+                unit: draft.type == "checklist" ? "" : draft.unit,
+                targetValue: draft.type == "checklist" ? 1.0 : (Double(draft.targetValue) ?? 0),
+                type: draft.type
             )
             modelContext.insert(metric)
             metric.goal = goal
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("AddGoalView save failed: \(error)")
+        }
         dismiss()
     }
 }
@@ -99,21 +104,41 @@ struct SubMetricDraft: Identifiable {
     var name = ""
     var unit = ""
     var targetValue = ""
+    var type: String = "numeric"
 }
 
 private struct SubMetricDraftRow: View {
     @Binding var draft: SubMetricDraft
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ThemedTextField("Name", text: $draft.name)
-            HStack {
-                ThemedTextField("Unit (e.g. kg, miles)", text: $draft.unit)
-                ThemedTextField("Target", text: $draft.targetValue)
-                    .keyboardType(.decimalPad)
-                    .frame(maxWidth: 80)
+
+            Picker("Mode", selection: $draft.type) {
+                Text("Numeric").tag("numeric")
+                Text("Checklist").tag("checklist")
             }
-            .font(.subheadline)
+            .pickerStyle(.segmented)
+            .onChange(of: draft.type) { _, newType in
+                if newType == "checklist" {
+                    draft.unit = ""
+                    draft.targetValue = "1"
+                }
+            }
+
+            if draft.type == "numeric" {
+                HStack {
+                    ThemedTextField("Unit (e.g. kg, miles)", text: $draft.unit)
+                    ThemedTextField("Target", text: $draft.targetValue)
+                        .keyboardType(.decimalPad)
+                        .frame(maxWidth: 80)
+                }
+                .font(.subheadline)
+            } else {
+                Text("Marks a single daily completion — no numeric target needed.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
         }
         .padding(.vertical, 2)
     }

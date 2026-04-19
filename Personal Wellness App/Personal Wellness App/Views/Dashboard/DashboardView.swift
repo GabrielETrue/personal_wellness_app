@@ -4,15 +4,17 @@ import SwiftData
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var players: [PlayerProfile]
-    @Query private var categories: [CategoryLevel]
-    @Query private var logEntries: [LogEntry]
-    @Query private var foodLogs: [FoodLog]
-    @Query private var liftingEntries: [LiftingEntry]
-    @Query private var cardioEntries: [CardioEntry]
-    @Query private var sleepLogs: [SleepLog]
+    @Query(sort: \CategoryLevel.name) private var categories: [CategoryLevel]
+    @Query(sort: \LogEntry.date, order: .reverse) private var logEntries: [LogEntry]
+    @Query(sort: \FoodLog.date, order: .reverse) private var foodLogs: [FoodLog]
+    @Query(sort: \LiftingEntry.date, order: .reverse) private var liftingEntries: [LiftingEntry]
+    @Query(sort: \CardioEntry.date, order: .reverse) private var cardioEntries: [CardioEntry]
+    @Query(sort: \SleepLog.date, order: .reverse) private var sleepLogs: [SleepLog]
+    @Query(sort: \WeightLog.date, order: .reverse) private var weightLogs: [WeightLog]
 
     @State private var selectedCategory: CategoryLevel?
     @State private var recentActivities: [ActivityItem] = []
+    @State private var showingWeightLog = false
 
     private let categoryOrder = ["Diet", "Exercise", "Sleep", "Custom"]
 
@@ -28,7 +30,7 @@ struct DashboardView: View {
     }
 
     private var logCount: Int {
-        foodLogs.count + logEntries.count + liftingEntries.count + cardioEntries.count + sleepLogs.count
+        foodLogs.count + logEntries.count + liftingEntries.count + cardioEntries.count + sleepLogs.count + weightLogs.count
     }
 
     private func refreshActivities() {
@@ -58,7 +60,11 @@ struct DashboardView: View {
 
                         // Section A — Player Header
                         if let player = players.first {
-                            PlayerHeaderSection(greeting: greeting, player: player)
+                            PlayerHeaderSection(
+                                greeting: greeting,
+                                player: player,
+                                onLogWeight: { showingWeightLog = true }
+                            )
                         }
 
                         // Section B — Category Cards
@@ -74,9 +80,9 @@ struct DashboardView: View {
                             }
                         }
 
-                        // Section C — Category Detail
+                        // Section C — Category Detail Graph
                         if let category = selectedCategory {
-                            CategoryDetailSection(
+                            CategoryDetailGraphView(
                                 category: category,
                                 onDismiss: { selectedCategory = nil }
                             )
@@ -84,16 +90,18 @@ struct DashboardView: View {
                         }
 
                         // Section D — Recent Activity
-                        RecentActivitySection(title: activityTitle, activities: recentActivities)
+                        RecentActivitySection(
+                            title: activityTitle,
+                            activities: recentActivities,
+                            onDelete: refreshActivities
+                        )
                     }
                     .padding()
                     .onChange(of: selectedCategory?.id) { _, newID in
                         refreshActivities()
                         guard newID != nil else { return }
                         DispatchQueue.main.async {
-                            withAnimation {
-                                proxy.scrollTo("sectionC", anchor: .top)
-                            }
+                            withAnimation { proxy.scrollTo("sectionC", anchor: .top) }
                         }
                     }
                     .onChange(of: logCount) { _, _ in refreshActivities() }
@@ -103,6 +111,7 @@ struct DashboardView: View {
         .navigationTitle("Dashboard")
         .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .sheet(isPresented: $showingWeightLog) { WeightLogView() }
         .task { refreshActivities() }
     }
 }
@@ -112,6 +121,7 @@ struct DashboardView: View {
 private struct PlayerHeaderSection: View {
     let greeting: String
     let player: PlayerProfile
+    let onLogWeight: () -> Void
 
     private var xpForNextLevel: Int { max(1, 100 * player.globalLevel) }
     private var progress: Double { Double(player.globalXP) / Double(xpForNextLevel) }
@@ -128,6 +138,18 @@ private struct PlayerHeaderSection: View {
                 .foregroundStyle(AppTheme.textPrimary)
             GradientProgressBar(value: progress, height: 10)
             HStack {
+                Button(action: onLogWeight) {
+                    Text("⚖️ Log Weight")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .overlay(
+                            Capsule().stroke(AppTheme.accentBlue, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
                 Spacer()
                 Text("\(remaining) XP to next level")
                     .font(.caption)
@@ -167,18 +189,15 @@ private struct CategoryCard: View {
                     .shadow(color: AppTheme.accentBlue.opacity(0.6), radius: 4)
                 Spacer()
                 Text("Lv \(category.level)")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .font(.caption2).fontWeight(.semibold)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(AppTheme.accentPurple.opacity(0.2))
                     .foregroundStyle(AppTheme.accentPurple)
                     .clipShape(Capsule())
             }
 
             Text(category.name)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(.subheadline).fontWeight(.semibold)
                 .foregroundStyle(AppTheme.textPrimary)
 
             GradientProgressBar(value: max(0, min(xpProgress, 1.0)))
@@ -191,8 +210,7 @@ private struct CategoryCard: View {
                 }
                 Spacer()
                 if loggedToday {
-                    Text("✅")
-                        .font(.caption)
+                    Text("✅").font(.caption)
                 } else {
                     Text("Nothing logged today")
                         .font(.caption2)
@@ -216,121 +234,17 @@ private struct CategoryCard: View {
     }
 }
 
-// MARK: - Section C: Category Detail
-
-private struct CategoryDetailSection: View {
-    let category: CategoryLevel
-    let onDismiss: () -> Void
-
-    private var activeGoals: [Goal] {
-        category.goals
-            .filter(\.isActive)
-            .sorted { $0.createdDate < $1.createdDate }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(category.name)
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.textPrimary)
-                Spacer()
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            if activeGoals.isEmpty {
-                Text("No active goals. Add one in the Goals tab.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(Array(activeGoals.enumerated()), id: \.element.id) { index, goal in
-                    GoalProgressRow(goal: goal)
-                    if index < activeGoals.count - 1 {
-                        Divider().overlay(AppTheme.backgroundSecondary)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(AppTheme.accentPurple.opacity(0.3), lineWidth: 1)
-                )
-        )
-    }
-}
-
-private struct GoalProgressRow: View {
-    let goal: Goal
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(goal.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(AppTheme.textPrimary)
-                Spacer()
-                Text("\(goal.xpValue) XP")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.accentBlue)
-            }
-            ForEach(goal.subMetrics) { metric in
-                SubMetricProgressRow(metric: metric)
-            }
-        }
-    }
-}
-
-private struct SubMetricProgressRow: View {
-    let metric: SubMetric
-
-    private var todayTotal: Double {
-        let today = Calendar.current.startOfDay(for: Date())
-        return metric.logs
-            .filter { Calendar.current.startOfDay(for: $0.date) == today }
-            .reduce(0.0) { $0 + $1.value }
-    }
-
-    private var progress: Double {
-        metric.targetValue > 0 ? min(todayTotal / metric.targetValue, 1.0) : 0
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(metric.name)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textSecondary)
-                Spacer()
-                Text("\(todayTotal.formatted())/\(metric.targetValue.formatted()) \(metric.unit)")
-                    .font(.caption2)
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
-            GradientProgressBar(value: progress, height: 6)
-        }
-    }
-}
-
 // MARK: - Section D: Recent Activity
 
 private struct RecentActivitySection: View {
     let title: String
     let activities: [ActivityItem]
+    let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.caption).fontWeight(.semibold)
                 .foregroundStyle(AppTheme.accentBlue)
                 .kerning(1.2)
 
@@ -342,11 +256,10 @@ private struct RecentActivitySection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(activities.enumerated()), id: \.element.id) { index, item in
-                        ActivityRow(item: item)
+                        ActivityRow(item: item, onDelete: onDelete)
                             .padding(.vertical, 10)
                         if index < activities.count - 1 {
-                            Divider()
-                                .background(AppTheme.backgroundSecondary)
+                            Divider().background(AppTheme.backgroundSecondary)
                         }
                     }
                 }
@@ -366,6 +279,10 @@ private struct RecentActivitySection: View {
 
 private struct ActivityRow: View {
     let item: ActivityItem
+    let onDelete: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingDeleteAlert = false
 
     private var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()
@@ -388,6 +305,64 @@ private struct ActivityRow: View {
                     .foregroundStyle(AppTheme.textSecondary)
             }
         }
+        .contentShape(Rectangle())
+        .onLongPressGesture { showingDeleteAlert = true }
+        .alert("Delete Activity?", isPresented: $showingDeleteAlert) {
+            Button("Delete", role: .destructive) { deleteItem() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reverse any XP awarded for this entry.")
+        }
+    }
+
+    private func deleteItem() {
+        switch item.logType {
+        case "food":
+            if let logs = try? modelContext.fetch(FetchDescriptor<FoodLog>()),
+               let record = logs.first(where: { $0.id == item.id }) {
+                modelContext.delete(record)
+            }
+        case "lifting":
+            if let logs = try? modelContext.fetch(FetchDescriptor<LiftingEntry>()),
+               let record = logs.first(where: { $0.id == item.id }) {
+                for set in record.sets { modelContext.delete(set) }
+                modelContext.delete(record)
+            }
+        case "cardio":
+            if let logs = try? modelContext.fetch(FetchDescriptor<CardioEntry>()),
+               let record = logs.first(where: { $0.id == item.id }) {
+                modelContext.delete(record)
+            }
+        case "sleep":
+            if let logs = try? modelContext.fetch(FetchDescriptor<SleepLog>()),
+               let record = logs.first(where: { $0.id == item.id }) {
+                modelContext.delete(record)
+            }
+        case "logEntry":
+            if let logs = try? modelContext.fetch(FetchDescriptor<LogEntry>()),
+               let record = logs.first(where: { $0.id == item.id }) {
+                reverseXP(for: record)
+                modelContext.delete(record)
+            }
+        default:
+            break
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("deleteItem save failed: \(error)")
+        }
+        onDelete()
+    }
+
+    private func reverseXP(for entry: LogEntry) {
+        guard let metric = entry.subMetric,
+              let goal = metric.goal,
+              let category = goal.category else { return }
+        category.xp = max(0, category.xp - goal.xpValue)
+        if let player = category.player {
+            player.globalXP = max(0, player.globalXP - goal.xpValue)
+        }
     }
 }
 
@@ -400,6 +375,7 @@ private struct ActivityRow: View {
             Goal.self, SubMetric.self, LogEntry.self,
             FoodLog.self, CustomNutrient.self, LiftingEntry.self, LiftingSet.self,
             CardioEntry.self, SleepLog.self, JournalEntry.self, AIInsight.self,
+            WeightLog.self,
         configurations: config
     )
 
@@ -417,14 +393,10 @@ private struct ActivityRow: View {
         cat.player = player
     }
 
-    let food = FoodLog(name: "Oatmeal", calories: 320, protein: 12)
-    ctx.insert(food)
-
-    let lift = LiftingEntry(exerciseName: "Bench Press")
-    ctx.insert(lift)
-
-    let sleep = SleepLog(hoursSlept: 7.5)
-    ctx.insert(sleep)
+    ctx.insert(FoodLog(name: "Oatmeal", calories: 320, protein: 12))
+    ctx.insert(LiftingEntry(exerciseName: "Bench Press"))
+    ctx.insert(SleepLog(hoursSlept: 7.5))
+    ctx.insert(WeightLog(weightLbs: 178.5))
 
     return NavigationStack {
         DashboardView()

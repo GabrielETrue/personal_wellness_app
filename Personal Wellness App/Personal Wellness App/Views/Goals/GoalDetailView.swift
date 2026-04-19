@@ -11,7 +11,7 @@ struct GoalDetailView: View {
             goal.subMetrics
                 .flatMap(\.logs)
                 .sorted { $0.date > $1.date }
-                .prefix(7)
+                .prefix(50)
         )
     }
 

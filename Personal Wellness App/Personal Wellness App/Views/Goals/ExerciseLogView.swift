@@ -201,7 +201,11 @@ struct ExerciseLogView: View {
             liftSet.entry = entry
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("ExerciseLogView saveLifting failed: \(error)")
+        }
         dismiss()
     }
 
@@ -213,7 +217,11 @@ struct ExerciseLogView: View {
             avgPace: avgPace
         )
         modelContext.insert(entry)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("ExerciseLogView saveCardio failed: \(error)")
+        }
         dismiss()
     }
 }

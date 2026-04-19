@@ -3,7 +3,7 @@ import SwiftData
 
 struct GoalsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var categoryLevels: [CategoryLevel]
+    @Query(sort: \CategoryLevel.name) private var categoryLevels: [CategoryLevel]
 
     @State private var selectedCategoryName = "Diet"
     @State private var showingAddGoal = false
@@ -101,7 +101,11 @@ struct GoalsView: View {
             }
             modelContext.delete(goal)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("deleteGoals save failed: \(error)")
+        }
     }
 }
 

@@ -67,7 +67,11 @@ struct NewEntryView: View {
             mood: selectedMood
         )
         modelContext.insert(entry)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("NewEntryView save failed: \(error)")
+        }
         dismiss()
     }
 }

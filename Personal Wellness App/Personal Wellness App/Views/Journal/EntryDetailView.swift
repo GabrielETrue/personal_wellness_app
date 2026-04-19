@@ -90,7 +90,11 @@ struct EntryDetailView: View {
     private func saveEdits() {
         entry.body = editBody.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.mood = editMood
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("EntryDetailView save failed: \(error)")
+        }
         isEditing = false
     }
 }

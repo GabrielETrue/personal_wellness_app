@@ -90,7 +90,11 @@ struct SleepLogView: View {
             let log = SleepLog(hoursSlept: hours, date: date)
             modelContext.insert(log)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("SleepLogView save failed: \(error)")
+        }
         dismiss()
     }
 }
