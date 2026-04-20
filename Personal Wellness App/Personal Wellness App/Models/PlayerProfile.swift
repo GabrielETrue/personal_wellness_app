@@ -6,6 +6,7 @@ final class PlayerProfile {
     var id: UUID
     var globalXP: Int
     var globalLevel: Int
+    @Attribute var targetWeightLbs: Double? = nil
     @Relationship(deleteRule: .cascade, inverse: \CategoryLevel.player)
     var categoryLevels: [CategoryLevel] = []
 

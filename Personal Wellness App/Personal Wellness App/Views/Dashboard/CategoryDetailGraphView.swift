@@ -247,7 +247,7 @@ private struct ExerciseChartsSection: View {
                         ForEach(grouped[name] ?? []) { point in
                             LineMark(
                                 x: .value("Date", point.date),
-                                y: .value("kg", point.maxWeight)
+                                y: .value("lbs", point.maxWeight)
                             )
                             .foregroundStyle(accentColors[i % accentColors.count])
                             .interpolationMethod(.monotone)
@@ -404,21 +404,40 @@ private struct WeightChartSection: View {
     let context: ModelContext
     let horizon: TimeHorizon
 
+    @Query private var players: [PlayerProfile]
+    private var targetWeight: Double? { players.first?.targetWeightLbs }
+
     var body: some View {
         let data = DashboardService.weightOverTime(horizon: horizon, in: context)
         ChartCard(title: "Body Weight (\(horizon.rawValue))") {
             if data.isEmpty {
                 emptyChartPlaceholder("No weight logged yet")
             } else {
-                let minW = (data.map(\.value).min() ?? 0) - 5
-                let maxW = (data.map(\.value).max() ?? 0) + 5
-                Chart(data) { item in
-                    LineMark(x: .value("Date", item.date), y: .value("lbs", item.value))
-                        .foregroundStyle(AppTheme.accentBlue)
-                        .interpolationMethod(.monotone)
-                    PointMark(x: .value("Date", item.date), y: .value("lbs", item.value))
-                        .foregroundStyle(AppTheme.accentBlue)
-                        .symbolSize(30)
+                let dataMin = data.map(\.value).min() ?? 0
+                let dataMax = data.map(\.value).max() ?? 0
+                let goalMin = targetWeight.map { min($0, dataMin) } ?? dataMin
+                let goalMax = targetWeight.map { max($0, dataMax) } ?? dataMax
+                let minW = goalMin - 5
+                let maxW = goalMax + 5
+                Chart {
+                    ForEach(data) { item in
+                        LineMark(x: .value("Date", item.date), y: .value("lbs", item.value))
+                            .foregroundStyle(AppTheme.accentBlue)
+                            .interpolationMethod(.monotone)
+                        PointMark(x: .value("Date", item.date), y: .value("lbs", item.value))
+                            .foregroundStyle(AppTheme.accentBlue)
+                            .symbolSize(30)
+                    }
+                    if let target = targetWeight {
+                        RuleMark(y: .value("Goal", target))
+                            .foregroundStyle(AppTheme.accentCyan)
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                            .annotation(position: .trailing, alignment: .leading) {
+                                Text("Goal")
+                                    .font(.caption2)
+                                    .foregroundStyle(AppTheme.accentCyan)
+                            }
+                    }
                 }
                 .chartYScale(domain: minW...maxW)
             }

@@ -55,3 +55,29 @@ xcodebuild -project "Personal Wellness App/Personal Wellness App.xcodeproj" -sch
 - Data models go in a `Models/` folder, views in `Views/`, and API/service logic in `Services/`
 - Never hardcode the Anthropic API key — store it in a local config file that is gitignored
 - When adding a new SwiftData model, immediately register it in the Schema in `Personal_Wellness_AppApp.swift`
+
+## Current State (as of Session 2)
+The app is fully functional with these working systems:
+- SwiftData persistence with all models registered
+- Goals, Journal, Dashboard, Claude tabs all functional
+- Anthropic API connected via Services/ClaudeService.swift
+- API key in Services/Secrets.swift (gitignored)
+- AppTheme defined in Services/AppTheme.swift
+- DashboardService handles all data aggregation
+- GoalStatsService computes stats for Claude API calls
+- NotificationService handles local notifications
+- InsightGenerationService orchestrates AI generation
+- MarkdownParser parses Claude responses for display
+- All units are imperial (lbs, miles)
+- Model string: claude-sonnet-4-6
+
+## Key Patterns To Follow
+- Always use AppTheme constants, never Color.accentColor
+- Always use .scrollContentBackground(.hidden) on List/Form
+- Always wrap modelContext.save() in do-catch
+- Always add sort descriptors to @Query declarations
+- Never rename SwiftData model fields (breaks schema)
+- New SwiftData models must be registered in Schema in
+  Personal_Wellness_AppApp.swift
+- Services go in Services/ folder
+- Views organized by tab in Views/[TabName]/ folders

@@ -6,11 +6,16 @@ struct WeightLogView: View {
     @Environment(\.dismiss) private var dismiss
 
     @Query(sort: \WeightLog.date, order: .reverse) private var weightLogs: [WeightLog]
+    @Query private var players: [PlayerProfile]
 
     @State private var weight: Double = 150.0
     @State private var date = Date()
+    @State private var showingGoalSetter = false
+    @State private var pendingGoalWeight: Double = 150.0
 
+    private var player: PlayerProfile? { players.first }
     private var lastLog: WeightLog? { weightLogs.first }
+    private var startingLog: WeightLog? { weightLogs.last }
 
     var body: some View {
         NavigationStack {
@@ -60,6 +65,8 @@ struct WeightLogView: View {
                             }
                         }
 
+                        goalWeightSection
+
                         FormCard(header: "Details") {
                             DatePicker("Date", selection: $date, displayedComponents: .date)
                                 .foregroundStyle(AppTheme.textPrimary)
@@ -86,8 +93,100 @@ struct WeightLogView: View {
                 if let last = weightLogs.first {
                     weight = last.weightLbs
                 }
+                pendingGoalWeight = weight
             }
         }
+    }
+
+    @ViewBuilder
+    private var goalWeightSection: some View {
+        if let p = player, let target = p.targetWeightLbs {
+            FormCard(header: "Goal Weight") {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Goal: \(target.formatted()) lbs")
+                            .foregroundStyle(AppTheme.textPrimary)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        let diff = weight - target
+                        let isClose = abs(diff) <= 5
+                        Text(diff == 0 ? "On target!" : (diff > 0 ? "+\(diff.formatted()) lbs" : "\(diff.formatted()) lbs"))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(isClose ? AppTheme.success : AppTheme.warning)
+                    }
+
+                    if let start = startingLog {
+                        let startW = start.weightLbs
+                        let totalChange = target - startW
+                        let progressChange = weight - startW
+                        let fraction: Double = totalChange == 0 ? 1.0 : min(max(progressChange / totalChange, 0), 1)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(AppTheme.backgroundSecondary)
+                                    .frame(height: 10)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(AppTheme.xpGradient)
+                                    .frame(width: geo.size.width * fraction, height: 10)
+                            }
+                        }
+                        .frame(height: 10)
+                        HStack {
+                            Text("\(startW.formatted()) lbs")
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Spacer()
+                            Text("\(target.formatted()) lbs")
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                    }
+
+                    Button("Change Goal Weight") {
+                        pendingGoalWeight = target
+                        showingGoalSetter = true
+                    }
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+                }
+
+                if showingGoalSetter {
+                    Divider().background(AppTheme.backgroundSecondary)
+                    Stepper("Goal: \(pendingGoalWeight.formatted()) lbs", value: $pendingGoalWeight, in: 50...500, step: 0.5)
+                        .foregroundStyle(AppTheme.textPrimary)
+                    Button("Save Goal") { saveGoalWeight() }
+                        .foregroundStyle(AppTheme.accentCyan)
+                }
+            }
+        } else if let p = player {
+            FormCard(header: "Goal Weight") {
+                if showingGoalSetter {
+                    Stepper("Goal: \(pendingGoalWeight.formatted()) lbs", value: $pendingGoalWeight, in: 50...500, step: 0.5)
+                        .foregroundStyle(AppTheme.textPrimary)
+                    Button("Save Goal") { saveGoalWeight() }
+                        .foregroundStyle(AppTheme.accentCyan)
+                } else {
+                    Button("+ Set Goal Weight") {
+                        pendingGoalWeight = weight
+                        showingGoalSetter = true
+                    }
+                    .foregroundStyle(AppTheme.accentBlue)
+                }
+            }
+            .opacity(p.id == p.id ? 1 : 0)
+        }
+    }
+
+    private func saveGoalWeight() {
+        guard let p = player else { return }
+        p.targetWeightLbs = pendingGoalWeight
+        do {
+            try modelContext.save()
+        } catch {
+            print("WeightLogView saveGoalWeight failed: \(error)")
+        }
+        showingGoalSetter = false
     }
 
     private func save() {
@@ -109,9 +208,13 @@ struct WeightLogView: View {
 
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: WeightLog.self, configurations: config)
+    let container = try! ModelContainer(for: WeightLog.self, PlayerProfile.self, configurations: config)
     let ctx = container.mainContext
-    ctx.insert(WeightLog(weightLbs: 178.5, date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()))
+    ctx.insert(WeightLog(weightLbs: 178.5, date: Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()))
+    ctx.insert(WeightLog(weightLbs: 175.0, date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()))
+    let p = PlayerProfile()
+    p.targetWeightLbs = 170.0
+    ctx.insert(p)
     return WeightLogView()
         .modelContainer(container)
         .preferredColorScheme(.dark)

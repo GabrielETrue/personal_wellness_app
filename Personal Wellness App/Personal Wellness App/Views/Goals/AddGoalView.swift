@@ -11,6 +11,8 @@ struct AddGoalView: View {
     @State private var frequency = "daily"
     @State private var xpValue = 10
     @State private var drafts: [SubMetricDraft] = []
+    @State private var hasTargetDate = false
+    @State private var targetDate: Date = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && !drafts.isEmpty
@@ -34,6 +36,23 @@ struct AddGoalView: View {
                             Divider().background(AppTheme.backgroundSecondary)
                             Stepper("XP Value: \(xpValue)", value: $xpValue, in: 5...100, step: 5)
                                 .foregroundStyle(AppTheme.textPrimary)
+                        }
+
+                        FormCard(header: "Schedule") {
+                            Toggle("Set target date", isOn: $hasTargetDate)
+                                .tint(AppTheme.accentBlue)
+                                .foregroundStyle(AppTheme.textPrimary)
+                            if hasTargetDate {
+                                DatePicker(
+                                    "Target date",
+                                    selection: $targetDate,
+                                    in: (Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())...,
+                                    displayedComponents: .date
+                                )
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .tint(AppTheme.accentBlue)
+                                .colorScheme(.dark)
+                            }
                         }
 
                         FormCard(
@@ -74,7 +93,8 @@ struct AddGoalView: View {
         let goal = Goal(
             name: name.trimmingCharacters(in: .whitespaces),
             frequency: frequency,
-            xpValue: xpValue
+            xpValue: xpValue,
+            targetDate: hasTargetDate ? targetDate : nil
         )
         modelContext.insert(goal)
         goal.category = categoryLevel
@@ -128,7 +148,7 @@ private struct SubMetricDraftRow: View {
 
             if draft.type == "numeric" {
                 HStack {
-                    ThemedTextField("Unit (e.g. kg, miles)", text: $draft.unit)
+                    ThemedTextField("Unit (e.g. lbs, miles)", text: $draft.unit)
                     ThemedTextField("Target", text: $draft.targetValue)
                         .keyboardType(.decimalPad)
                         .frame(maxWidth: 80)

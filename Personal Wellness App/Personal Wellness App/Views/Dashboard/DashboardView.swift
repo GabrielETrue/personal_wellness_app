@@ -15,6 +15,12 @@ struct DashboardView: View {
     @State private var selectedCategory: CategoryLevel?
     @State private var recentActivities: [ActivityItem] = []
     @State private var showingWeightLog = false
+    @State private var showingEditSheet = false
+    @State private var activityToEdit: ActivityItem?
+    @State private var showingDeleteConfirmation = false
+    @State private var activityToDelete: ActivityItem?
+    @State private var showingActionSheet = false
+    @State private var actionSheetItem: ActivityItem?
 
     private let categoryOrder = ["Diet", "Exercise", "Sleep", "Custom"]
 
@@ -93,7 +99,10 @@ struct DashboardView: View {
                         RecentActivitySection(
                             title: activityTitle,
                             activities: recentActivities,
-                            onDelete: refreshActivities
+                            onLongPress: { item in
+                                actionSheetItem = item
+                                showingActionSheet = true
+                            }
                         )
                     }
                     .padding()
@@ -112,7 +121,99 @@ struct DashboardView: View {
         .toolbarBackground(AppTheme.backgroundSecondary, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(isPresented: $showingWeightLog) { WeightLogView() }
+        .sheet(isPresented: $showingEditSheet) {
+            if let item = activityToEdit {
+                editView(for: item)
+            }
+        }
+        .confirmationDialog("Activity", isPresented: $showingActionSheet, titleVisibility: .hidden) {
+            Button("Edit") {
+                activityToEdit = actionSheetItem
+                showingEditSheet = true
+            }
+            Button("Delete", role: .destructive) {
+                activityToDelete = actionSheetItem
+                showingDeleteConfirmation = true
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+        .alert("Delete Activity?", isPresented: $showingDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                if let item = activityToDelete { deleteActivityItem(item) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reverse any XP awarded for this entry.")
+        }
         .task { refreshActivities() }
+    }
+
+    @ViewBuilder
+    private func editView(for item: ActivityItem) -> some View {
+        switch item.logType {
+        case "food":    EditFoodLogView(recordID: item.recordID, onSave: refreshActivities)
+        case "lifting": EditLiftingEntryView(recordID: item.recordID, onSave: refreshActivities)
+        case "cardio":  EditCardioEntryView(recordID: item.recordID, onSave: refreshActivities)
+        case "sleep":   EditSleepLogView(recordID: item.recordID, onSave: refreshActivities)
+        case "logEntry": EditLogEntryView(recordID: item.recordID, onSave: refreshActivities)
+        case "weight":  EditWeightLogView(recordID: item.recordID, onSave: refreshActivities)
+        default:        EmptyView()
+        }
+    }
+
+    private func deleteActivityItem(_ item: ActivityItem) {
+        switch item.logType {
+        case "food":
+            if let logs = try? modelContext.fetch(FetchDescriptor<FoodLog>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                modelContext.delete(record)
+            }
+        case "lifting":
+            if let logs = try? modelContext.fetch(FetchDescriptor<LiftingEntry>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                for set in record.sets { modelContext.delete(set) }
+                modelContext.delete(record)
+            }
+        case "cardio":
+            if let logs = try? modelContext.fetch(FetchDescriptor<CardioEntry>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                modelContext.delete(record)
+            }
+        case "sleep":
+            if let logs = try? modelContext.fetch(FetchDescriptor<SleepLog>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                modelContext.delete(record)
+            }
+        case "logEntry":
+            if let logs = try? modelContext.fetch(FetchDescriptor<LogEntry>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                reverseXP(for: record)
+                modelContext.delete(record)
+            }
+        case "weight":
+            if let logs = try? modelContext.fetch(FetchDescriptor<WeightLog>()),
+               let record = logs.first(where: { $0.id == item.recordID }) {
+                modelContext.delete(record)
+            }
+        default:
+            break
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            print("deleteActivityItem save failed: \(error)")
+        }
+        refreshActivities()
+    }
+
+    private func reverseXP(for entry: LogEntry) {
+        guard let metric = entry.subMetric,
+              let goal = metric.goal,
+              let category = goal.category else { return }
+        category.xp = max(0, category.xp - goal.xpValue)
+        if let player = category.player {
+            player.globalXP = max(0, player.globalXP - goal.xpValue)
+        }
     }
 }
 
@@ -239,7 +340,7 @@ private struct CategoryCard: View {
 private struct RecentActivitySection: View {
     let title: String
     let activities: [ActivityItem]
-    let onDelete: () -> Void
+    let onLongPress: (ActivityItem) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -256,7 +357,7 @@ private struct RecentActivitySection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(activities.enumerated()), id: \.element.id) { index, item in
-                        ActivityRow(item: item, onDelete: onDelete)
+                        ActivityRow(item: item, onLongPress: { onLongPress(item) })
                             .padding(.vertical, 10)
                         if index < activities.count - 1 {
                             Divider().background(AppTheme.backgroundSecondary)
@@ -279,10 +380,7 @@ private struct RecentActivitySection: View {
 
 private struct ActivityRow: View {
     let item: ActivityItem
-    let onDelete: () -> Void
-
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingDeleteAlert = false
+    let onLongPress: () -> Void
 
     private var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()
@@ -306,63 +404,7 @@ private struct ActivityRow: View {
             }
         }
         .contentShape(Rectangle())
-        .onLongPressGesture { showingDeleteAlert = true }
-        .alert("Delete Activity?", isPresented: $showingDeleteAlert) {
-            Button("Delete", role: .destructive) { deleteItem() }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This will reverse any XP awarded for this entry.")
-        }
-    }
-
-    private func deleteItem() {
-        switch item.logType {
-        case "food":
-            if let logs = try? modelContext.fetch(FetchDescriptor<FoodLog>()),
-               let record = logs.first(where: { $0.id == item.id }) {
-                modelContext.delete(record)
-            }
-        case "lifting":
-            if let logs = try? modelContext.fetch(FetchDescriptor<LiftingEntry>()),
-               let record = logs.first(where: { $0.id == item.id }) {
-                for set in record.sets { modelContext.delete(set) }
-                modelContext.delete(record)
-            }
-        case "cardio":
-            if let logs = try? modelContext.fetch(FetchDescriptor<CardioEntry>()),
-               let record = logs.first(where: { $0.id == item.id }) {
-                modelContext.delete(record)
-            }
-        case "sleep":
-            if let logs = try? modelContext.fetch(FetchDescriptor<SleepLog>()),
-               let record = logs.first(where: { $0.id == item.id }) {
-                modelContext.delete(record)
-            }
-        case "logEntry":
-            if let logs = try? modelContext.fetch(FetchDescriptor<LogEntry>()),
-               let record = logs.first(where: { $0.id == item.id }) {
-                reverseXP(for: record)
-                modelContext.delete(record)
-            }
-        default:
-            break
-        }
-        do {
-            try modelContext.save()
-        } catch {
-            print("deleteItem save failed: \(error)")
-        }
-        onDelete()
-    }
-
-    private func reverseXP(for entry: LogEntry) {
-        guard let metric = entry.subMetric,
-              let goal = metric.goal,
-              let category = goal.category else { return }
-        category.xp = max(0, category.xp - goal.xpValue)
-        if let player = category.player {
-            player.globalXP = max(0, player.globalXP - goal.xpValue)
-        }
+        .onLongPressGesture { onLongPress() }
     }
 }
 

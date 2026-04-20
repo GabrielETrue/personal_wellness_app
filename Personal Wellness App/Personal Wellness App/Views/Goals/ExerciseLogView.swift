@@ -87,7 +87,7 @@ struct ExerciseLogView: View {
         FormCard(header: "Sets") {
             ForEach(Array(sets.enumerated()), id: \.element.id) { index, draft in
                 HStack {
-                    Text("Set \(index + 1): \(draft.reps) reps @ \(draft.weightKg.formatted()) kg")
+                    Text("Set \(index + 1): \(draft.reps) reps @ \(draft.weightKg.formatted()) lbs")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textPrimary)
                     Spacer()
@@ -106,7 +106,7 @@ struct ExerciseLogView: View {
                 Stepper("Reps: \(pendingReps)", value: $pendingReps, in: 1...50)
                     .foregroundStyle(AppTheme.textPrimary)
                 HStack {
-                    Text("Weight (kg)")
+                    Text("Weight (lbs)")
                         .foregroundStyle(AppTheme.textPrimary)
                     Spacer()
                     TextField("0", text: $pendingWeight)

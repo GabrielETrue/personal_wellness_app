@@ -49,11 +49,12 @@ enum TimeHorizon: String, CaseIterable {
 
 struct ActivityItem: Identifiable {
     let id: UUID
+    let recordID: UUID
     let date: Date
     let icon: String
     let description: String
     let categoryName: String
-    let logType: String   // "food" | "lifting" | "cardio" | "sleep" | "logEntry"
+    let logType: String   // "food" | "lifting" | "cardio" | "sleep" | "logEntry" | "weight"
 }
 
 // MARK: - Chart Data Structures
@@ -149,7 +150,7 @@ struct DashboardService {
             if let logs = try? context.fetch(d) {
                 for log in logs {
                     items.append(ActivityItem(
-                        id: log.id, date: log.date, icon: "fork.knife",
+                        id: UUID(), recordID: log.id, date: log.date, icon: "fork.knife",
                         description: "🍽 \(log.name): \(Int(log.calories)) kcal, \(log.protein.formatted())g protein",
                         categoryName: "Diet", logType: "food"
                     ))
@@ -164,7 +165,7 @@ struct DashboardService {
             if let logs = try? context.fetch(ld) {
                 for log in logs {
                     items.append(ActivityItem(
-                        id: log.id, date: log.date, icon: "figure.run",
+                        id: UUID(), recordID: log.id, date: log.date, icon: "figure.run",
                         description: "💪 \(log.exerciseName): \(log.sets.count) sets",
                         categoryName: "Exercise", logType: "lifting"
                     ))
@@ -176,7 +177,7 @@ struct DashboardService {
             if let logs = try? context.fetch(cd) {
                 for log in logs {
                     items.append(ActivityItem(
-                        id: log.id, date: log.date, icon: "figure.run",
+                        id: UUID(), recordID: log.id, date: log.date, icon: "figure.run",
                         description: "🏃 \(log.type): \(log.durationMinutes.formatted()) min",
                         categoryName: "Exercise", logType: "cardio"
                     ))
@@ -191,7 +192,7 @@ struct DashboardService {
             if let logs = try? context.fetch(sd) {
                 for log in logs {
                     items.append(ActivityItem(
-                        id: log.id, date: log.date, icon: "bed.double",
+                        id: UUID(), recordID: log.id, date: log.date, icon: "bed.double",
                         description: "😴 \(log.hoursSlept.formatted()) hours sleep",
                         categoryName: "Sleep", logType: "sleep"
                     ))
@@ -215,9 +216,24 @@ struct DashboardService {
                     ? "✅ \(metricName) completed"
                     : "\(metricName): \(log.value.formatted()) \(unit)"
                 items.append(ActivityItem(
-                    id: log.id, date: log.date, icon: icon,
+                    id: UUID(), recordID: log.id, date: log.date, icon: icon,
                     description: desc, categoryName: catName, logType: "logEntry"
                 ))
+            }
+        }
+
+        if categoryName == nil {
+            var wd = FetchDescriptor<WeightLog>(sortBy: [SortDescriptor(\.date, order: .reverse)])
+            wd.predicate = #Predicate { $0.date >= cutoff }
+            wd.fetchLimit = 50
+            if let logs = try? context.fetch(wd) {
+                for log in logs {
+                    items.append(ActivityItem(
+                        id: UUID(), recordID: log.id, date: log.date, icon: "scalemass",
+                        description: "⚖️ Weight: \(log.weightLbs.formatted()) lbs",
+                        categoryName: "Weight", logType: "weight"
+                    ))
+                }
             }
         }
 

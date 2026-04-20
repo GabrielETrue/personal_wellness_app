@@ -59,7 +59,11 @@ struct Personal_Wellness_AppApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .task { await seedDefaultDataIfNeeded() }
+                .task {
+                    await seedDefaultDataIfNeeded()
+                    _ = await NotificationService.requestPermission()
+                    NotificationService.scheduleDailySummary(at: 4, minute: 0)
+                }
                 .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
