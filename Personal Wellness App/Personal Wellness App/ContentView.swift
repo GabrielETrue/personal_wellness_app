@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var quickLogPresented = false
+
     init() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -10,27 +12,38 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView {
-            NavigationStack {
-                DashboardView()
-            }
-            .tabItem { Label("Dashboard", systemImage: "house") }
-            .toolbarBackground(AppTheme.backgroundSecondary, for: .tabBar)
+        ZStack(alignment: .bottomTrailing) {
+            TabView {
+                NavigationStack {
+                    DashboardView()
+                }
+                .tabItem { Label("Dashboard", systemImage: "house") }
+                .toolbarBackground(AppTheme.backgroundSecondary, for: .tabBar)
 
-            NavigationStack {
-                GoalsView()
-            }
-            .tabItem { Label("Goals", systemImage: "target") }
+                NavigationStack {
+                    GoalsView()
+                }
+                .tabItem { Label("Goals", systemImage: "target") }
 
-            NavigationStack {
-                JournalView()
-            }
-            .tabItem { Label("Journal", systemImage: "book") }
+                NavigationStack {
+                    JournalView()
+                }
+                .tabItem { Label("Journal", systemImage: "book") }
 
-            ClaudeView()
-                .tabItem { Label("Claude", systemImage: "sparkles") }
+                ClaudeView()
+                    .tabItem { Label("Claude", systemImage: "sparkles") }
+            }
+            .tint(AppTheme.accentBlue)
+            .sheet(isPresented: $quickLogPresented) {
+                QuickLogView()
+            }
+
+            if !quickLogPresented {
+                QuickLogButton(isPresented: $quickLogPresented)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 96)
+            }
         }
-        .tint(AppTheme.accentBlue)
     }
 }
 

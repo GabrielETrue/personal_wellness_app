@@ -8,6 +8,9 @@ struct CategoryDetailGraphView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var selectedHorizon: TimeHorizon = .month
+    @State private var showingDietLog = false
+    @State private var showingExerciseLog = false
+    @State private var showingSleepLog = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -55,6 +58,14 @@ struct CategoryDetailGraphView: View {
 
             // Active Goals
             ActiveGoalsSection(category: category)
+
+            // Quick Log Actions
+            QuickActionButtons(
+                category: category,
+                showDiet: $showingDietLog,
+                showExercise: $showingExerciseLog,
+                showSleep: $showingSleepLog
+            )
         }
         .padding()
         .background(
@@ -65,6 +76,9 @@ struct CategoryDetailGraphView: View {
                         .stroke(AppTheme.accentPurple.opacity(0.3), lineWidth: 1)
                 )
         )
+        .sheet(isPresented: $showingDietLog) { DietLogView() }
+        .sheet(isPresented: $showingExerciseLog) { ExerciseLogView() }
+        .sheet(isPresented: $showingSleepLog) { SleepLogView() }
     }
 }
 
@@ -557,6 +571,50 @@ private struct SubMetricDetailRow: View {
                 GradientProgressBar(value: progress, height: 5)
             }
         }
+    }
+}
+
+// MARK: - Quick Action Buttons
+
+private struct QuickActionButtons: View {
+    let category: CategoryLevel
+    @Binding var showDiet: Bool
+    @Binding var showExercise: Bool
+    @Binding var showSleep: Bool
+
+    var body: some View {
+        switch category.name {
+        case "Diet":
+            actionButton(label: "🍽 Log Food") { showDiet = true }
+        case "Exercise":
+            HStack(spacing: 10) {
+                actionButton(label: "💪 Log Lifting") { showExercise = true }
+                actionButton(label: "🏃 Log Cardio")  { showExercise = true }
+            }
+        case "Sleep":
+            actionButton(label: "😴 Log Sleep") { showSleep = true }
+        default:
+            EmptyView()
+        }
+    }
+
+    private func actionButton(label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline).fontWeight(.medium)
+                .foregroundStyle(AppTheme.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(AppTheme.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(AppTheme.accentBlue.opacity(0.4), lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

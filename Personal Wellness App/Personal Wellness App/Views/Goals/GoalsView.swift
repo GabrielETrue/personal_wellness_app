@@ -6,8 +6,8 @@ struct GoalsView: View {
     @Query(sort: \CategoryLevel.name) private var categoryLevels: [CategoryLevel]
 
     @State private var selectedCategoryName = "Diet"
-    @State private var showingAddGoal = false
-    @State private var addGoalCategory: CategoryLevel?
+    @State private var showingWizard = false
+    @State private var wizardCategory: CategoryLevel?
     @State private var showingDietLog = false
     @State private var showingExerciseLog = false
     @State private var showingSleepLog = false
@@ -61,8 +61,8 @@ struct GoalsView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    addGoalCategory = selectedCategory
-                    showingAddGoal = true
+                    wizardCategory = selectedCategory
+                    showingWizard = true
                 } label: {
                     Image(systemName: "plus")
                         .foregroundStyle(AppTheme.accentBlue)
@@ -70,33 +70,21 @@ struct GoalsView: View {
                 .disabled(selectedCategory == nil)
             }
         }
-        .sheet(isPresented: $showingAddGoal) {
-            if let category = addGoalCategory {
-                AddGoalView(categoryLevel: category)
+        .sheet(isPresented: $showingWizard) {
+            if let category = wizardCategory {
+                GoalCreationWizardView(categoryLevel: category)
             }
         }
         .sheet(isPresented: $showingDietLog) { DietLogView() }
         .sheet(isPresented: $showingExerciseLog) { ExerciseLogView() }
         .sheet(isPresented: $showingSleepLog) { SleepLogView() }
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 12) {
-                QuickLogButton(label: "🍽 Food") { showingDietLog = true }
-                QuickLogButton(label: "💪 Exercise") { showingExerciseLog = true }
-                QuickLogButton(label: "😴 Sleep") { showingSleepLog = true }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(AppTheme.backgroundSecondary)
-        }
     }
 
     private func deleteGoals(at offsets: IndexSet, from goals: [Goal]) {
         for index in offsets {
             let goal = goals[index]
             for metric in goal.subMetrics {
-                for entry in metric.logs {
-                    modelContext.delete(entry)
-                }
+                for entry in metric.logs { modelContext.delete(entry) }
                 modelContext.delete(metric)
             }
             modelContext.delete(goal)
@@ -146,26 +134,6 @@ private struct FrequencyBadge: View {
             .background(frequency == "daily" ? AppTheme.accentBlue.opacity(0.15) : AppTheme.accentPurple.opacity(0.15))
             .foregroundStyle(frequency == "daily" ? AppTheme.accentBlue : AppTheme.accentPurple)
             .clipShape(Capsule())
-    }
-}
-
-private struct QuickLogButton: View {
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(AppTheme.textPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(AppTheme.xpGradient)
-                .clipShape(Capsule())
-                .shadow(color: AppTheme.accentBlue.opacity(0.3), radius: 6)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 

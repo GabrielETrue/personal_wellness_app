@@ -90,14 +90,22 @@ struct LogProgressView: View {
     @ViewBuilder
     private var checklistEntryCard: some View {
         FormCard(header: "Entry") {
-            Toggle("Mark as completed today", isOn: $checklistToggle)
-                .foregroundStyle(AppTheme.textPrimary)
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $checklistToggle) {
+                    HStack(spacing: 8) {
+                        Image(systemName: checklistToggle ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(checklistToggle ? AppTheme.success : AppTheme.textSecondary)
+                        Text(selectedSubMetric?.name ?? "Completed")
+                            .foregroundStyle(AppTheme.textPrimary)
+                    }
+                }
                 .tint(AppTheme.accentBlue)
 
-            if existingChecklistLog != nil {
-                Text("Already logged for this date — toggling off will delete the entry.")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textSecondary)
+                if existingChecklistLog != nil {
+                    Text("Already logged — toggling off will delete this entry.")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.warning)
+                }
             }
 
             Divider().background(AppTheme.backgroundSecondary)
